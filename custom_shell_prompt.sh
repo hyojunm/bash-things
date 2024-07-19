@@ -1,3 +1,5 @@
+# https://www.gnu.org/software/bash/manual/html_node/Controlling-the-Prompt.html
+
 REGULAR="\e[0m"
 BOLD="\e[1m"
 #DIM="\e[2m"
@@ -30,20 +32,42 @@ fi
 PS0="🖥️  "
 
 PS1="${debian_chroot:+($debian_chroot)}\n"
-PS1+="$REGULAR$LIGHT_RED_BACK\D{%D %H:%M}"
+
+LINE1=""
+LINE2=""
+LINE3=""
+
+LINE1+="$REGULAR$LIGHT_RED_BACK\D{%D %H:%M}"
 
 if [[ $BRANCH != "" ]]
 then
-    PS1+="$REGULAR$DEFAULT ${LIGHT_YELLOW_BACK}branch: $UNDERLINE$BRANCH"
+    LINE1+="$REGULAR$DEFAULT ${LIGHT_YELLOW_BACK}branch: $UNDERLINE$BRANCH"
 fi
 
-PS1+="$REGULAR$DEFAULT\n"
+LINE1+="$REGULAR$DEFAULT\n"
 
-PS1+="$REGULAR$BOLD$CYAN\u"
-PS1+="$REGULAR$DEFAULT @ "
-PS1+="$REGULAR$UNDERLINE$MAGENTA\w" #if overflow, replace with ellipses in beginning
+LINE2+="$REGULAR$BOLD$CYAN\u"
+LINE2+="$REGULAR$DEFAULT @ "
 
-PS1+="$REGULAR$DEFAULT\n👦 "
+CURRENT_DIRECTORY=$(pwd)
+
+# echo ${#CURRENT_DIRECTORY}
+# echo $((COLUMNS-10))
+
+while [ ${#CURRENT_DIRECTORY} -ge $((COLUMNS - 15)) ]
+do
+    CURRENT_DIRECTORY=$(echo $CURRENT_DIRECTORY | cut -d "/" -f 2-)
+done
+
+if [ $CURRENT_DIRECTORY != $(pwd) ]
+then
+    CURRENT_DIRECTORY=".../$CURRENT_DIRECTORY"
+fi
+
+LINE2+="$REGULAR$UNDERLINE$MAGENTA$CURRENT_DIRECTORY"
+LINE3+="$REGULAR$DEFAULT\n👦 "
+
+PS1+=$LINE1$LINE2$LINE3
 
 # try doing some spell check stuff?
 # what if there is no output?
