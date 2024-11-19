@@ -23,13 +23,12 @@ then
     BRANCH=""
 fi
 
-if [[ $BRANCH = "main" ]]
+if [[ $BRANCH = "main" || $BRANCH = "master" ]]
 then
     BRANCH="$GREEN$BRANCH"
 fi
 
-PS0="🖥️  "
-
+PS0="🖥️ \n"
 PS1="${debian_chroot:+($debian_chroot)}\n"
 
 LINE1=""
