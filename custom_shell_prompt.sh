@@ -41,7 +41,12 @@ get_branch() {
 format_dir() {
 	curr_dir="$(pwd)"
 
-	while [ "${#curr_dir}" -ge $((COLUMNS - 15)) ]; do
+	username=$(whoami)
+	username_length="${#username}"
+
+	available_length=$(( COLUMNS - username_length - 7 ))
+
+	while [ "${#curr_dir}" -gt $available_length ]; do
 		curr_dir=$(echo $curr_dir | cut -d "/" -f 2-)
 	done
 
@@ -49,12 +54,23 @@ format_dir() {
 		curr_dir=".../$curr_dir"
 	fi
 
+	if [[ "${#curr_dir}" -gt $available_length ]]; then
+		before_length="${#curr_dir}"
+		curr_dir=${curr_dir:4:available_length}
+		after_length="${#curr_dir}"
+		
+		if [[ $before_length -lt $((after_length - 4)) ]]; then
+			curr_dir="$curr_dir..."
+		fi
+	fi
+	
 	echo $curr_dir
 }
 
 # set prompt text
 PS0=""
-PS1="${debian_chroot:+($debian_chroot)}\n"
+PS1="\n"
+# PS1="${debian_chroot:+($debian_chroot)}\n"
 
 # show date and time
 PS1+="$REGULAR$LIGHT_RED_BACK\D{%D %H:%M}" # \D = date
@@ -63,8 +79,9 @@ PS1+="$REGULAR$LIGHT_RED_BACK\D{%D %H:%M}" # \D = date
 branch=$(get_branch)
 
 if [[ $branch != "" ]]; then
-	PS1+="$REGULAR$DEFAULT ${LIGHT_YELLOW_BACK}"
-	PS1+="branch: $UNDERLINE$BOLD$branch"
+	PS1+="$REGULAR$DEFAULT ${LIGHT_YELLOW_BACK}("
+	PS1+="$UNDERLINE$BOLD$branch"
+	PS1+="$REGULAR${LIGHT_YELLOW_BACK})"
 fi
 
 # show username
