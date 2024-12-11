@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 
 SHORTCUT_FILE=~/.shortcuts
+TEMP_FILE=~/.temp
 
 list_shortcuts() {
-	counter=1
+	counter=0
 	
 	while read line; do
+		(( counter++ ))
 		readarray -d "," -t entry <<< "$line"
 		echo "[${counter}] ${entry[0]}"
-		(( counter++ ))
 	done < $SHORTCUT_FILE
+
+	if [[ counter -eq 0 ]]; then
+		return 1
+	fi
 }
 
 shortcut_exists() {
@@ -70,13 +75,70 @@ add_shortcut() {
 	fi
 }
 
-# remove_shortcut() {
+remove_shortcut() {
+	target=$1
+	counter=0
 
-# }
+	# clear the temp file
+	touch $TEMP_FILE
+	echo -n "" > $TEMP_FILE
 
-# edit_shortcut() {
+	while read line; do
+		(( counter++ ))
 
-# }
+		# only write if not remove target
+		if [[ $counter -ne $target ]]; then
+			echo $line >> $TEMP_FILE
+		fi
+	done < $SHORTCUT_FILE
+
+	cat $TEMP_FILE > $SHORTCUT_FILE
+
+	if [[ $? -eq 0 ]]; then
+		echo "Removed successfully."
+	fi
+}
+
+edit_shortcut() {
+	target=$1
+	counter=0
+
+	new_name=$2
+	new_path=$3
+
+	# clear the temp file
+	touch $TEMP_FILE
+	echo -n "" > $TEMP_FILE
+
+	while read line; do
+		(( counter++ ))
+
+		if [[ $counter -eq $target ]]; then
+			readarray -d "," -t entry <<< "$line"
+			
+			name="${entry[0]}"
+			path=$(echo ${entry[1]} | sed 's/\n//')
+			
+			if [[ -n $new_name ]]; then
+				name="$new_name"
+			fi
+			
+			if [[ -n $new_path ]]; then
+				path="$new_path"
+			fi
+
+			echo "$name,$path" >> $TEMP_FILE
+		else
+			echo $line >> $TEMP_FILE
+		fi
+	done < $SHORTCUT_FILE
+
+	cat $TEMP_FILE > $SHORTCUT_FILE
+
+	if [[ $? -eq 0 ]]; then
+		echo "Updated successfully."
+	fi
+}
 
 find_shortcut() {
 	target=$1
@@ -97,62 +159,63 @@ find_shortcut() {
 	done < $SHORTCUT_FILE
 }
 
-goto_main_menu() {
-	echo "Available shortcuts:"
-	list_shortcuts
-
-	echo
-	echo -n "Enter shortcut number ('q' to cancel): "
-
-	read selection
-
-	([[ -z $selection ]] || [[ $selection = "q" ]]) && return
-
-	if [[ $(shortcut_exists i $selection) -eq 1 ]]; then
-		find_shortcut $selection
-	else
-		echo
-		echo "This shortcut option does not exist."
-		echo "Use goto -l to view all shortcuts."
-	fi
-}
-
 touch $SHORTCUT_FILE
 
 is_add=0
 is_edit=0
 is_help=0
 is_list=0
+is_remove=0
 
 sc_name=""
 sc_path=""
 
+to_edit=0
+to_remove=0
+
 # needed to reset option flags
 OPTIND=1
 
-while getopts "aehln:p:" flag; do
+while getopts "ae:hln:p:r:" flag; do
 	case "$flag" in
-		a) is_add=1 ;;
-		e) is_edit=1 ;;
-		h) is_help=1 ;;
-		l) is_list=1 ;;
-		n) sc_name=$OPTARG ;;
-		p) sc_path=$OPTARG ;;
+		a) is_add=1
+		   ;;
+		e) is_edit=1
+		   to_edit=$OPTARG
+		   ;;
+		h) is_help=1
+		   ;;
+		l) is_list=1
+		   ;;
+		n) sc_name="$OPTARG"
+		   ;;
+		p) sc_path="$OPTARG"
+		   ;;
+		r) is_remove=1
+		   to_remove=$OPTARG
+		   ;;
 		*) ;;
 	esac
 done
 
 # cannot use more than one command flag
 # https://stackoverflow.com/questions/60081399/how-to-enforce-only-the-use-of-one-flag-in-a-shell-script
-if (( is_add + is_edit + is_help + is_list > 1 )); then
-	echo "wtf are you tryna do"
+if (( is_add + is_edit + is_help + is_list + is_remove > 1 )); then
+	echo "You can only use one command flag at a time."
+	echo "Use goto -h for help."
 fi
 
 # if no command flag was used, show the main menu
 # list all shortcuts and let the user select one
-if (( is_add + is_edit + is_help + is_list == 0 )); then
+if (( is_add + is_edit + is_help + is_list + is_remove == 0 )); then
 	if [[ $# -eq 0 ]]; then
 		list_shortcuts
+
+		if [[ $? -eq 1 ]]; then
+			echo "No shortcuts available."
+			echo "Use goto -a to create a new shortcut."
+			return
+		fi
 		
 		echo
 		echo "Type in a number, or press 'Enter' to cancel."
@@ -191,11 +254,13 @@ if [[ is_add -eq 1 ]]; then
 
 	sc_path=$(realpath $sc_path)
 
+	# verify sc_path is a valid path on the computer
+
 	if [[ -z $sc_name ]]; then
 		sc_name=$sc_path
 	fi
 
-	add_shortcut $sc_name $sc_path
+	add_shortcut "$sc_name" "$sc_path"
 fi
 
 # listing all shortcuts
@@ -203,14 +268,27 @@ if [[ is_list -eq 1 ]]; then
 	list_shortcuts
 fi
 
-#################################
-#  TO-DO                        #
-# ----------------------------- #
-#  * add edit function          #
-#  * add remove function        #
-#  * add help function          #
-#  * what if comma is part of   #
-#    path?                      #
-#  * when using -n flag, input  #
-#    could be multiple words    #
-#################################
+# editing a shortcut
+if [[ is_edit -eq 1 ]]; then
+	if [[ to_edit -eq 0 ]]; then
+		echo "Please select a valid shortcut to edit."
+		echo "Use goto -l to view all shortcuts."
+	fi
+	
+	if [[ -n $sc_path ]]; then
+		sc_path="$(pwd)/$sc_path"
+		sc_path=$(realpath $sc_path)
+	fi
+
+	edit_shortcut $to_edit "$sc_name" "$sc_path"
+fi
+
+# removing a shortcut
+if [[ is_remove -eq 1 ]]; then
+	if [[ to_remove -eq 0 ]]; then
+		echo "Please select a valid shortcut to delete."
+		echo "Use goto -l to view all shortcuts."
+	fi
+
+	remove_shortcut $to_remove
+fi
