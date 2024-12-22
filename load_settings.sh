@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-BASE_DIRECTORY="~/bash-things"
+BASE_DIRECTORY="$HOME/bash-things"
 
 source "${BASE_DIRECTORY}/custom_shell_prompt.sh"
 source "${BASE_DIRECTORY}/power.sh"

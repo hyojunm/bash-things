@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-SHORTCUT_FILE=~/.shortcuts
-TEMP_FILE=~/.temp
+SHORTCUT_FILE=$HOME/.shortcuts
+TEMP_FILE=$HOME/.temp
 
 list_shortcuts() {
 	counter=0
